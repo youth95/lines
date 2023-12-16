@@ -1,0 +1,24 @@
+[package]
+name = "lines"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+bevy = { version = "0.12.1", features = [
+    "bevy_ui",
+    "bevy_winit",
+    "bevy_render",
+    "png",
+], default-features = false }
+bevy_prototype_lyon = { path = "./third_party/bevy_prototype_lyon" }
+bevy-inspector-egui = "0.21.0"
+rand = "0.8.5"
+
+[profile.release]
+opt-level = "s"
+debug = false
+strip = "none"
+debug-assertions = false
+overflow-checks = false
+lto = true
