@@ -3,7 +3,10 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
-use crate::common::{hide_window_cursor, show_window_cursor};
+use crate::{
+    common::{hide_window_cursor, show_window_cursor},
+    states::RunMode,
+};
 
 pub struct UIPlugin;
 
@@ -12,10 +15,16 @@ impl Plugin for UIPlugin {
         app.init_resource::<FocusedTool>()
             .add_plugins(UiMaterialPlugin::<IconsUiMaterial>::default())
             .add_systems(Startup, setup_ui)
-            .add_systems(Update, show_window_cursor.run_if(is_hover_tool_button_bar))
             .add_systems(
                 Update,
-                hide_window_cursor.run_if(not(is_hover_tool_button_bar)),
+                show_window_cursor.run_if(is_hover_tool_button_bar),
+            )
+            .add_systems(
+                Update,
+                hide_window_cursor.run_if(
+                    not(is_hover_tool_button_bar)
+                        .or_else(in_state(RunMode::Normal)),
+                ),
             )
             .add_systems(Update, update_tool_button_background);
     }
@@ -130,7 +139,9 @@ fn setup_ui(
         });
 }
 
-fn is_hover_tool_button_bar(interaction_query: Query<&Interaction, With<ToolButtonBar>>) -> bool {
+fn is_hover_tool_button_bar(
+    interaction_query: Query<&Interaction, With<ToolButtonBar>>,
+) -> bool {
     if let Ok(interaction) = interaction_query.get_single() {
         match interaction {
             Interaction::Pressed => true,
@@ -143,10 +154,16 @@ fn is_hover_tool_button_bar(interaction_query: Query<&Interaction, With<ToolButt
 }
 
 fn update_tool_button_background(
-    mut interaction_query: Query<(&Interaction, &mut BackgroundColor, &ToolButton)>,
+    mut interaction_query: Query<(
+        &Interaction,
+        &mut BackgroundColor,
+        &ToolButton,
+    )>,
     mut focused_tool: ResMut<FocusedTool>,
 ) {
-    for (interaction, mut background_color, tool) in interaction_query.iter_mut() {
+    for (interaction, mut background_color, tool) in
+        interaction_query.iter_mut()
+    {
         *background_color = match interaction {
             Interaction::Pressed => {
                 *focused_tool = FocusedTool(tool.clone());

@@ -1,16 +1,13 @@
 use bevy::{
-    ecs::query::ReadOnlyWorldQuery,
-    input::common_conditions::{input_pressed, input_toggle_active},
-    prelude::*,
-    render::view::NoFrustumCulling,
-    sprite::Material2dPlugin,
+    ecs::query::ReadOnlyWorldQuery, input::common_conditions::input_pressed,
+    prelude::*, render::view::NoFrustumCulling, sprite::Material2dPlugin,
 };
 use bevy_prototype_lyon::prelude::*;
 
 use crate::{
     chalk::ChalkMaterial,
     common::show_window_cursor,
-    states::AppState,
+    states::{AppState, RunMode},
     touch_cursor::{TouchCursor, TouchCursorPlugin, WorldTouchCursor},
     ui::{FocusedTool, ToolButton},
 };
@@ -20,14 +17,20 @@ pub struct DrawPlugin;
 impl Plugin for DrawPlugin {
     fn build(&self, app: &mut App) {
         let clear_condition = input_pressed(KeyCode::C);
-        let run_mode_condition = input_toggle_active(true, KeyCode::Escape);
-        let non_run_mode_condition = input_toggle_active(false, KeyCode::Escape);
         app.add_plugins((
             Material2dPlugin::<ChalkMaterial>::default(),
             TouchCursorPlugin,
         ))
-        .add_systems(OnEnter(AppState::Hovering), remove_focused_line)
-        .add_systems(OnEnter(AppState::Drawing), spawn_focused_line)
+        .add_systems(
+            OnEnter(AppState::Hovering),
+            remove_focused_line
+                .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
+        )
+        .add_systems(
+            OnEnter(AppState::Drawing),
+            spawn_focused_line
+                .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
+        )
         .add_systems(Update, clear_with::<With<Path>>.run_if(clear_condition))
         .add_systems(
             Update,
@@ -47,10 +50,13 @@ impl Plugin for DrawPlugin {
                 update_line,
                 drawing,
             )
-                .run_if(run_mode_condition)
+                .run_if(in_state(RunMode::Normal))
                 .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
         )
-        .add_systems(Update, show_window_cursor.run_if(non_run_mode_condition));
+        .add_systems(
+            Update,
+            show_window_cursor.run_if(in_state(RunMode::Debug)),
+        );
     }
 }
 
@@ -75,7 +81,10 @@ impl From<&Line> for Path {
     }
 }
 
-fn remove_focused_line(focused_line: Query<Entity, With<Focused>>, mut commands: Commands) {
+fn remove_focused_line(
+    focused_line: Query<Entity, With<Focused>>,
+    mut commands: Commands,
+) {
     if let Ok(focused_line) = focused_line.get_single() {
         commands.entity(focused_line).remove::<Focused>();
     }
@@ -126,13 +135,19 @@ fn drawing(
     }
 }
 
-fn clear_with<F: ReadOnlyWorldQuery>(mut commands: Commands, query: Query<Entity, F>) {
+fn clear_with<F: ReadOnlyWorldQuery>(
+    mut commands: Commands,
+    query: Query<Entity, F>,
+) {
     for id in query.iter() {
         commands.entity(id).despawn();
     }
 }
 
-fn remove_last_with<F: ReadOnlyWorldQuery>(mut commands: Commands, query: Query<Entity, F>) {
+fn remove_last_with<F: ReadOnlyWorldQuery>(
+    mut commands: Commands,
+    query: Query<Entity, F>,
+) {
     query.iter().last().and_then(|id| {
         commands.entity(id).despawn();
         Some(())
@@ -140,10 +155,14 @@ fn remove_last_with<F: ReadOnlyWorldQuery>(mut commands: Commands, query: Query<
 }
 
 fn undo_condition(keyboard_input: Res<Input<KeyCode>>) -> bool {
-    keyboard_input.just_pressed(KeyCode::Z) && keyboard_input.pressed(KeyCode::ControlLeft)
+    keyboard_input.just_pressed(KeyCode::Z)
+        && keyboard_input.pressed(KeyCode::ControlLeft)
 }
 
-fn update_line(focused_line: Query<(Entity, &Line), Changed<Line>>, mut commands: Commands) {
+fn update_line(
+    focused_line: Query<(Entity, &Line), Changed<Line>>,
+    mut commands: Commands,
+) {
     for (id, line) in focused_line.iter() {
         commands.entity(id).insert(Path::from(line));
     }
@@ -165,3 +184,11 @@ fn remove_line(
         }
     }
 }
+
+// fn show_mesh(mut q_mesh: Query<&Mesh2dHandle>, mut meshes: Assets<Mesh>) {
+//     for mesh in q_mesh.iter_mut() {
+//         if let Some(mut mesh) = meshes.get_mut(mesh.0.clone()) {
+//             mesh.primitive_topology().set
+//         }
+//     }
+// }

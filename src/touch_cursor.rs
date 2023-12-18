@@ -5,6 +5,8 @@ use bevy::{
     window::PrimaryWindow,
 };
 
+use crate::projection_2d_control::MainCamera;
+
 pub struct TouchCursorPlugin;
 
 impl Plugin for TouchCursorPlugin {
@@ -15,7 +17,10 @@ impl Plugin for TouchCursorPlugin {
             .init_resource::<WorldTouchCursor>()
             .register_type::<WorldTouchCursor>()
             .add_systems(Startup, setup_touch_cursor)
-            .add_systems(Update, (update_touch_cursor, update_world_torch_cursor));
+            .add_systems(
+                Update,
+                (update_touch_cursor, update_world_torch_cursor),
+            );
     }
 }
 
@@ -53,7 +58,7 @@ impl UiMaterial for TouchCursorUiMaterial {
 
 fn update_touch_cursor(
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
-    q_proj: Query<&OrthographicProjection, With<Camera>>,
+    q_proj: Query<&OrthographicProjection, With<MainCamera>>,
     mut touch_cursor: ResMut<TouchCursor>,
     mut ui_materials: ResMut<Assets<TouchCursorUiMaterial>>,
     mut q_cursor: Query<(
@@ -79,11 +84,11 @@ fn update_touch_cursor(
     }
 
     // 缩放时不能有ctrl 按键按下
-    if keyboard_input.pressed(KeyCode::ControlLeft) {
-        for event in mouse_wheel_events.read() {
-            touch_cursor.size += event.y * 0.5;
-        }
-    }
+    // if keyboard_input.pressed(KeyCode::ControlLeft) {
+    //     for event in mouse_wheel_events.read() {
+    //         touch_cursor.size += event.y * 0.5;
+    //     }
+    // }
 }
 
 fn setup_touch_cursor(
@@ -119,13 +124,15 @@ fn setup_touch_cursor(
 }
 
 fn update_world_torch_cursor(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut world_touch_cursor: ResMut<WorldTouchCursor>,
     mut cursor_moved_events: EventReader<CursorMoved>,
 ) {
     let (camera, camera_transform) = camera_query.single();
     for event in cursor_moved_events.read() {
-        if let Some(point) = camera.viewport_to_world_2d(camera_transform, event.position) {
+        if let Some(point) =
+            camera.viewport_to_world_2d(camera_transform, event.position)
+        {
             if world_touch_cursor.0 != point {
                 *world_touch_cursor = WorldTouchCursor(point);
             }
