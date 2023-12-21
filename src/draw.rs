@@ -1,13 +1,20 @@
 use bevy::{
-    ecs::query::ReadOnlyWorldQuery, input::common_conditions::input_pressed,
-    prelude::*, render::view::NoFrustumCulling, sprite::Material2dPlugin,
+    ecs::query::ReadOnlyWorldQuery,
+    input::common_conditions::{
+        input_just_pressed, input_just_released, input_pressed,
+    },
+    pbr::wireframe::Wireframe,
+    prelude::*,
+    sprite::{Material2dPlugin, Mesh2dHandle},
 };
 use bevy_prototype_lyon::prelude::*;
 
 use crate::{
     chalk::ChalkMaterial,
     common::show_window_cursor,
+    frame::FrameMaterial,
     states::{AppState, RunMode},
+    toggle_component::{self, Toggle},
     touch_cursor::{TouchCursor, TouchCursorPlugin, WorldTouchCursor},
     ui::{FocusedTool, ToolButton},
 };
@@ -17,10 +24,48 @@ pub struct DrawPlugin;
 impl Plugin for DrawPlugin {
     fn build(&self, app: &mut App) {
         let clear_condition = input_pressed(KeyCode::C);
+        let draw_all_true = |world: &mut World| {
+            world.insert_resource(GizmoConfig {
+                aabb: AabbGizmoConfig {
+                    draw_all: true,
+                    ..default()
+                },
+                ..default()
+            })
+        };
+        let draw_all_false = |world: &mut World| {
+            world.insert_resource(GizmoConfig {
+                aabb: AabbGizmoConfig {
+                    draw_all: false,
+                    ..default()
+                },
+                ..default()
+            })
+        };
         app.add_plugins((
             Material2dPlugin::<ChalkMaterial>::default(),
+            Material2dPlugin::<FrameMaterial>::default(),
             TouchCursorPlugin,
         ))
+        .add_systems(
+            Update,
+            toggle_component::toggle_component::<
+                Handle<ChalkMaterial>,
+                Handle<FrameMaterial>,
+            >
+                .run_if(
+                    input_just_pressed(KeyCode::Tab)
+                        .or_else(input_just_released(KeyCode::Tab)),
+                ),
+        )
+        .add_systems(
+            Update,
+            draw_all_true.run_if(input_just_pressed(KeyCode::Tab)),
+        )
+        .add_systems(
+            Update,
+            draw_all_false.run_if(input_just_released(KeyCode::Tab)),
+        )
         .add_systems(
             OnEnter(AppState::Hovering),
             remove_focused_line
@@ -82,17 +127,22 @@ impl From<&Line> for Path {
 }
 
 fn remove_focused_line(
-    focused_line: Query<Entity, With<Focused>>,
+    focused_line: Query<(Entity, &Line), With<Focused>>,
     mut commands: Commands,
 ) {
-    if let Ok(focused_line) = focused_line.get_single() {
-        commands.entity(focused_line).remove::<Focused>();
+    if let Ok((focused_line, line)) = focused_line.get_single() {
+        if line.0.len() == 0 {
+            commands.entity(focused_line).despawn();
+        } else {
+            commands.entity(focused_line).remove::<Focused>();
+        }
     }
 }
 
 fn spawn_focused_line(
     mut commands: Commands,
     mut materials: ResMut<Assets<ChalkMaterial>>,
+    mut frame_materials: ResMut<Assets<FrameMaterial>>,
     mut current_layer: Local<i8>,
     touch_cursor: Res<TouchCursor>,
 ) {
@@ -100,19 +150,26 @@ fn spawn_focused_line(
     stroke.options.line_join = LineJoin::Round;
     stroke.options.start_cap = LineCap::Round;
     stroke.options.end_cap = LineCap::Round;
-    commands
-        .spawn((
-            stroke,
-            ShapeBundle::default(),
-            Focused,
-            Line(vec![]),
-            NoFrustumCulling, // 禁止视锥剔除 TODO: 可能有性能问题
-            materials.add(ChalkMaterial {
-                material_color: touch_cursor.color,
-            }),
-            crate::layer::Layer::Foreground(*current_layer),
-        ))
-        .remove::<Handle<ColorMaterial>>(); // 移除颜色材质
+
+    let toggle_material = Toggle(
+        materials.add(ChalkMaterial {
+            material_color: touch_cursor.color,
+        }),
+        frame_materials.add(FrameMaterial::default()),
+    );
+
+    commands.spawn((
+        stroke,
+        Path::default(),
+        Mesh2dHandle::default(),
+        SpatialBundle::default(),
+        toggle_material.0.clone(),
+        toggle_material,
+        Focused,
+        Line(vec![]),
+        Wireframe,
+        crate::layer::Layer::Foreground(*current_layer),
+    ));
     *current_layer = (*current_layer + 1) % (i8::MAX - 1);
 }
 
@@ -161,10 +218,15 @@ fn undo_condition(keyboard_input: Res<Input<KeyCode>>) -> bool {
 
 fn update_line(
     focused_line: Query<(Entity, &Line), Changed<Line>>,
+    touch_cursor: Res<TouchCursor>,
     mut commands: Commands,
 ) {
+    let mut stroke = Stroke::new(Color::RED, touch_cursor.size);
+    stroke.options.line_join = LineJoin::Round;
+    stroke.options.start_cap = LineCap::Round;
+    stroke.options.end_cap = LineCap::Round;
     for (id, line) in focused_line.iter() {
-        commands.entity(id).insert(Path::from(line));
+        commands.entity(id).insert((Path::from(line), stroke)); // Remove Aabb 以重新计算包围盒
     }
 }
 
@@ -184,11 +246,3 @@ fn remove_line(
         }
     }
 }
-
-// fn show_mesh(mut q_mesh: Query<&Mesh2dHandle>, mut meshes: Assets<Mesh>) {
-//     for mesh in q_mesh.iter_mut() {
-//         if let Some(mut mesh) = meshes.get_mut(mesh.0.clone()) {
-//             mesh.primitive_topology().set
-//         }
-//     }
-// }

@@ -1,5 +1,4 @@
 use bevy::{
-    input::mouse::MouseWheel,
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
     window::PrimaryWindow,
@@ -66,7 +65,6 @@ fn update_touch_cursor(
         &mut Transform,
         &mut Handle<TouchCursorUiMaterial>,
     )>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     let window = q_windows.single_mut();
@@ -83,12 +81,13 @@ fn update_touch_cursor(
         })
     }
 
-    // 缩放时不能有ctrl 按键按下
-    // if keyboard_input.pressed(KeyCode::ControlLeft) {
-    //     for event in mouse_wheel_events.read() {
-    //         touch_cursor.size += event.y * 0.5;
-    //     }
-    // }
+    if keyboard_input.pressed(KeyCode::BracketLeft) {
+        touch_cursor.size -= 0.5;
+    }
+
+    if keyboard_input.pressed(KeyCode::BracketRight) {
+        touch_cursor.size += 0.5;
+    }
 }
 
 fn setup_touch_cursor(

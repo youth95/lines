@@ -5,13 +5,13 @@ edition = "2021"
 
 
 [dependencies]
-bevy = { version = "0.12.1", features = [
-    "bevy_ui",
-    "bevy_winit",
-    "bevy_render",
-    "png",
-], default-features = false }
-# bevy="0.12.1"
+# bevy = { version = "0.12.1", features = [
+#     "bevy_ui",
+#     "bevy_winit",
+#     "bevy_render",
+#     "png",
+# ], default-features = false }
+bevy="0.12.1"
 bevy_prototype_lyon = { path = "./third_party/bevy_prototype_lyon" }
 bevy-inspector-egui = "0.21.0"
 rand = "0.8.5"

@@ -1,8 +1,4 @@
-use bevy::{
-    input::{common_conditions::input_pressed, mouse::MouseWheel},
-    prelude::*,
-    window::PrimaryWindow,
-};
+use bevy::{input::mouse::MouseWheel, prelude::*, window::PrimaryWindow};
 
 use crate::states::{AppState, RunMode};
 
@@ -38,15 +34,7 @@ impl Plugin for Projection2dControlPlugin {
             )
             .add_systems(
                 Update,
-                wheel_proj
-                    .run_if(not(input_pressed(KeyCode::ControlLeft)))
-                    .run_if(in_state(AppState::Hovering))
-                    .run_if(in_state(RunMode::Normal)),
-            )
-            .add_systems(
-                Update,
-                scale_proj
-                    .run_if(input_pressed(KeyCode::ControlLeft))
+                control_proj
                     .run_if(in_state(AppState::Hovering))
                     .run_if(in_state(RunMode::Normal)),
             );
@@ -98,25 +86,20 @@ fn update_camera(
     }
 }
 
-fn scale_proj(
-    mut camera_query: Query<&mut OrthographicProjection, With<MainCamera>>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-) {
-    let mut proj = camera_query.single_mut();
-    for event in mouse_wheel_events.read() {
-        proj.scale += 0.01 * event.y
-    }
-}
-
-fn wheel_proj(
+fn control_proj(
     mut camera_query: Query<
-        (&mut Transform, &OrthographicProjection),
+        (&mut Transform, &mut OrthographicProjection),
         With<MainCamera>,
     >,
     mut mouse_wheel_events: EventReader<MouseWheel>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
-    let (mut transform, proj) = camera_query.single_mut();
+    let (mut transform, mut proj) = camera_query.single_mut();
     for event in mouse_wheel_events.read() {
-        transform.translation.y += 20. * event.y * proj.scale;
+        if keyboard_input.pressed(KeyCode::ControlLeft) {
+            proj.scale += 0.01 * event.y
+        } else {
+            transform.translation.y += 20. * event.y * proj.scale;
+        }
     }
 }
