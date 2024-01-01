@@ -13,6 +13,7 @@ use crate::{
     chalk::ChalkMaterial,
     common::show_window_cursor,
     frame::FrameMaterial,
+    mesh_focus,
     states::{AppState, RunMode},
     toggle_component::{self, Toggle},
     touch_cursor::{TouchCursor, TouchCursorPlugin, WorldTouchCursor},
@@ -101,6 +102,11 @@ impl Plugin for DrawPlugin {
         .add_systems(
             Update,
             show_window_cursor.run_if(in_state(RunMode::Debug)),
+        )
+        .add_systems(
+            Update,
+            mesh_focus::mesh_focus_system
+                .run_if(resource_equals(FocusedTool(ToolButton::Cursor))),
         );
     }
 }
@@ -226,7 +232,7 @@ fn update_line(
     stroke.options.start_cap = LineCap::Round;
     stroke.options.end_cap = LineCap::Round;
     for (id, line) in focused_line.iter() {
-        commands.entity(id).insert((Path::from(line), stroke)); // Remove Aabb 以重新计算包围盒
+        commands.entity(id).insert((Path::from(line), stroke));
     }
 }
 

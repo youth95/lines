@@ -1,4 +1,5 @@
 use bevy::{
+    input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
@@ -21,12 +22,15 @@ impl Plugin for UIPlugin {
             )
             .add_systems(
                 Update,
-                hide_window_cursor.run_if(
-                    not(is_hover_tool_button_bar)
-                        .or_else(in_state(RunMode::Normal)),
-                ),
+                hide_window_cursor
+                    .run_if(not(is_hover_tool_button_bar))
+                    .run_if(in_state(RunMode::Normal)),
             )
-            .add_systems(Update, update_tool_button_background);
+            .add_systems(
+                Update,
+                (update_tool_button_background, focused_tool_by_key_code)
+                    .run_if(in_state(RunMode::Normal)),
+            );
     }
 }
 
@@ -61,7 +65,11 @@ pub enum ToolButton {
     #[default]
     Pen,
     Eraser,
+    Cursor,
 }
+
+#[derive(Component)]
+struct ToolButtonKeyCode(KeyCode);
 
 #[derive(Resource, Default, PartialEq, Eq)]
 pub struct FocusedTool(pub ToolButton);
@@ -116,25 +124,37 @@ fn setup_ui(
                         ..default()
                     };
 
-                    let mut tool_btn = |pos: Vec2, tool: ToolButton| {
-                        parent
-                            .spawn((
-                                NodeBundle {
-                                    style: Style {
-                                        padding: UiRect::all(Val::Px(10.0)),
+                    let mut tool_btn =
+                        |pos: Vec2, tool: ToolButton, key_code: KeyCode| {
+                            parent
+                                .spawn((
+                                    NodeBundle {
+                                        style: Style {
+                                            padding: UiRect::all(Val::Px(10.0)),
+                                            ..default()
+                                        },
                                         ..default()
                                     },
-                                    ..default()
-                                },
-                                bevy::ui::Interaction::None,
-                                tool,
-                            ))
-                            .with_children(|parent| {
-                                parent.spawn(icon(pos));
-                            });
-                    };
-                    tool_btn(Vec2::new(0., 0.), ToolButton::Pen);
-                    tool_btn(Vec2::new(1., 0.), ToolButton::Eraser);
+                                    bevy::ui::Interaction::None,
+                                    tool,
+                                    ToolButtonKeyCode(key_code),
+                                ))
+                                .with_children(|parent| {
+                                    parent.spawn(icon(pos));
+                                });
+                        };
+
+                    tool_btn(
+                        Vec2::new(2., 0.),
+                        ToolButton::Cursor,
+                        KeyCode::Key1,
+                    );
+                    tool_btn(Vec2::new(0., 0.), ToolButton::Pen, KeyCode::Key2);
+                    tool_btn(
+                        Vec2::new(1., 0.),
+                        ToolButton::Eraser,
+                        KeyCode::Key3,
+                    );
                 });
         });
 }
@@ -176,6 +196,26 @@ fn update_tool_button_background(
             *background_color = TOOL_BUTTON_FOCUS.into();
         } else {
             *background_color = Color::NONE.into();
+        }
+    }
+}
+
+fn focused_tool_by_key_code(
+    mut keyboard_input_events: EventReader<KeyboardInput>,
+    tool_button_query: Query<(&ToolButtonKeyCode, &ToolButton)>,
+    mut focused_tool: ResMut<FocusedTool>,
+) {
+    for ev in keyboard_input_events.read() {
+        if ev.state == ButtonState::Pressed {
+            for (key_code, tool) in tool_button_query.iter() {
+                if let (Some(key1), ToolButtonKeyCode(key2)) =
+                    (ev.key_code, key_code)
+                {
+                    if key1 == *key2 {
+                        *focused_tool = FocusedTool(tool.clone());
+                    }
+                }
+            }
         }
     }
 }
