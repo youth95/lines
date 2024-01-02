@@ -2,11 +2,7 @@
 // 2. TODO: 然后 二次 Mesh 内判定
 use bevy::{prelude::*, render::primitives::Aabb};
 
-use crate::{
-    layer::Layer,
-    touch_cursor::WorldTouchCursor,
-    ui::{FocusedTool, ToolButton},
-};
+use crate::{layer::Layer, states::ToolButton, touch_cursor::WorldTouchCursor};
 
 #[derive(Resource, Default)]
 pub struct HoveredMesh(pub Option<Entity>);
@@ -18,7 +14,7 @@ impl Plugin for MeshFocusPlugin {
         app.init_resource::<HoveredMesh>().add_systems(
             Update,
             (mesh_focus_system, draw_focus)
-                .run_if(resource_equals(FocusedTool(ToolButton::Cursor))),
+                .run_if(in_state(ToolButton::Cursor)),
         );
     }
 }

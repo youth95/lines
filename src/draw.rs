@@ -13,10 +13,9 @@ use crate::{
     chalk::ChalkMaterial,
     frame::FrameMaterial,
     mesh_focus::MeshFocusPlugin,
-    states::{AppState, RunMode},
+    states::{AppState, RunMode, ToolButton},
     toggle_component::{self, Toggle},
     touch_cursor::{Cursor, TouchCursorPlugin, WorldTouchCursor},
-    ui::{FocusedTool, ToolButton},
 };
 
 pub struct DrawPlugin;
@@ -69,20 +68,18 @@ impl Plugin for DrawPlugin {
         )
         .add_systems(
             OnEnter(AppState::Hovering),
-            remove_focused_line
-                .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
+            remove_focused_line.run_if(in_state(ToolButton::Pen)),
         )
         .add_systems(
             OnEnter(AppState::Drawing),
-            spawn_focused_line
-                .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
+            spawn_focused_line.run_if(in_state(ToolButton::Pen)),
         )
         .add_systems(Update, clear_with::<With<Path>>.run_if(clear_condition))
         .add_systems(
             Update,
             remove_line
                 .run_if(resource_changed::<WorldTouchCursor>())
-                .run_if(resource_equals(FocusedTool(ToolButton::Eraser)))
+                .run_if(in_state(ToolButton::Eraser))
                 .run_if(in_state(AppState::Drawing)),
         )
         .add_systems(
@@ -97,7 +94,7 @@ impl Plugin for DrawPlugin {
                 drawing,
             )
                 .run_if(in_state(RunMode::Normal))
-                .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
+                .run_if(in_state(ToolButton::Pen)),
         );
     }
 }

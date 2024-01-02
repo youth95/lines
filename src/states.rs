@@ -20,6 +20,14 @@ pub enum RunMode {
     Debug,
 }
 
+#[derive(States, Component, Debug, Hash, Default, PartialEq, Eq, Clone)]
+pub enum ToolButton {
+    #[default]
+    Pen,
+    Eraser,
+    Cursor,
+}
+
 pub struct StatesPlugin;
 
 impl Plugin for StatesPlugin {
@@ -56,6 +64,7 @@ impl Plugin for StatesPlugin {
 
         app.add_state::<AppState>()
             .add_state::<RunMode>()
+            .add_state::<ToolButton>()
             .add_systems(
                 Update,
                 (in_normal_mode, to_normal_mode, to_debug_mode),

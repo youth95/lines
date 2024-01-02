@@ -6,7 +6,7 @@ use bevy::{
 
 use crate::{
     common::{hide_window_cursor, show_window_cursor},
-    states::RunMode,
+    states::{RunMode, ToolButton},
     touch_cursor::Cursor,
 };
 
@@ -14,8 +14,7 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<FocusedTool>()
-            .add_plugins(UiMaterialPlugin::<IconsUiMaterial>::default())
+        app.add_plugins(UiMaterialPlugin::<IconsUiMaterial>::default())
             .add_systems(Startup, setup_ui)
             .add_systems(
                 Update,
@@ -66,19 +65,8 @@ impl UiMaterial for IconsUiMaterial {
 #[derive(Component)]
 struct ToolButtonBar;
 
-#[derive(Component, Default, PartialEq, Eq, Clone)]
-pub enum ToolButton {
-    #[default]
-    Pen,
-    Eraser,
-    Cursor,
-}
-
 #[derive(Component)]
 struct ToolButtonKeyCode(KeyCode);
-
-#[derive(Resource, Default, PartialEq, Eq)]
-pub struct FocusedTool(pub ToolButton);
 
 fn setup_ui(
     mut commands: Commands,
@@ -206,20 +194,22 @@ fn update_tool_button_background(
         &mut BackgroundColor,
         &ToolButton,
     )>,
-    mut focused_tool: ResMut<FocusedTool>,
+    mut next_focused_tool: ResMut<NextState<ToolButton>>,
+    focused_tool: Res<State<ToolButton>>,
 ) {
     for (interaction, mut background_color, tool) in
         interaction_query.iter_mut()
     {
         *background_color = match interaction {
             Interaction::Pressed => {
-                *focused_tool = FocusedTool(tool.clone());
+                next_focused_tool.set(tool.clone());
                 TOOL_BUTTON_FOCUS.into()
             }
             Interaction::Hovered => TOOL_BUTTON_HOVER.into(),
             Interaction::None => Color::NONE.into(),
         };
-        if *tool == focused_tool.0 {
+
+        if tool == focused_tool.get() {
             *background_color = TOOL_BUTTON_FOCUS.into();
         } else {
             *background_color = Color::NONE.into();
@@ -230,7 +220,7 @@ fn update_tool_button_background(
 fn focused_tool_by_key_code(
     mut keyboard_input_events: EventReader<KeyboardInput>,
     tool_button_query: Query<(&ToolButtonKeyCode, &ToolButton, &Cursor)>,
-    mut focused_tool: ResMut<FocusedTool>,
+    mut focused_tool: ResMut<NextState<ToolButton>>,
     mut cursor_resource: ResMut<Cursor>,
 ) {
     for ev in keyboard_input_events.read() {
@@ -240,7 +230,7 @@ fn focused_tool_by_key_code(
                     (ev.key_code, key_code)
                 {
                     if key1 == *key2 {
-                        *focused_tool = FocusedTool(tool.clone());
+                        focused_tool.set(tool.clone());
                         *cursor_resource = cursor.clone();
                     }
                 }
