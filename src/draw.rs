@@ -11,12 +11,11 @@ use bevy_prototype_lyon::prelude::*;
 
 use crate::{
     chalk::ChalkMaterial,
-    common::show_window_cursor,
     frame::FrameMaterial,
-    mesh_focus,
+    mesh_focus::MeshFocusPlugin,
     states::{AppState, RunMode},
     toggle_component::{self, Toggle},
-    touch_cursor::{TouchCursor, TouchCursorPlugin, WorldTouchCursor},
+    touch_cursor::{Cursor, TouchCursorPlugin, WorldTouchCursor},
     ui::{FocusedTool, ToolButton},
 };
 
@@ -47,6 +46,7 @@ impl Plugin for DrawPlugin {
             Material2dPlugin::<ChalkMaterial>::default(),
             Material2dPlugin::<FrameMaterial>::default(),
             TouchCursorPlugin,
+            MeshFocusPlugin,
         ))
         .add_systems(
             Update,
@@ -98,15 +98,6 @@ impl Plugin for DrawPlugin {
             )
                 .run_if(in_state(RunMode::Normal))
                 .run_if(resource_equals(FocusedTool(ToolButton::Pen))),
-        )
-        .add_systems(
-            Update,
-            show_window_cursor.run_if(in_state(RunMode::Debug)),
-        )
-        .add_systems(
-            Update,
-            mesh_focus::mesh_focus_system
-                .run_if(resource_equals(FocusedTool(ToolButton::Cursor))),
         );
     }
 }
@@ -150,33 +141,35 @@ fn spawn_focused_line(
     mut materials: ResMut<Assets<ChalkMaterial>>,
     mut frame_materials: ResMut<Assets<FrameMaterial>>,
     mut current_layer: Local<i8>,
-    touch_cursor: Res<TouchCursor>,
+    cursor: Res<Cursor>,
 ) {
-    let mut stroke = Stroke::new(Color::RED, touch_cursor.size);
-    stroke.options.line_join = LineJoin::Round;
-    stroke.options.start_cap = LineCap::Round;
-    stroke.options.end_cap = LineCap::Round;
+    if let Cursor::Touch(touch_cursor) = cursor.as_ref() {
+        let mut stroke = Stroke::new(Color::RED, touch_cursor.size);
+        stroke.options.line_join = LineJoin::Round;
+        stroke.options.start_cap = LineCap::Round;
+        stroke.options.end_cap = LineCap::Round;
 
-    let toggle_material = Toggle(
-        materials.add(ChalkMaterial {
-            material_color: touch_cursor.color,
-        }),
-        frame_materials.add(FrameMaterial::default()),
-    );
+        let toggle_material = Toggle(
+            materials.add(ChalkMaterial {
+                material_color: touch_cursor.color,
+            }),
+            frame_materials.add(FrameMaterial::default()),
+        );
 
-    commands.spawn((
-        stroke,
-        Path::default(),
-        Mesh2dHandle::default(),
-        SpatialBundle::default(),
-        toggle_material.0.clone(),
-        toggle_material,
-        Focused,
-        Line(vec![]),
-        Wireframe,
-        crate::layer::Layer::Foreground(*current_layer),
-    ));
-    *current_layer = (*current_layer + 1) % (i8::MAX - 1);
+        commands.spawn((
+            stroke,
+            Path::default(),
+            Mesh2dHandle::default(),
+            SpatialBundle::default(),
+            toggle_material.0.clone(),
+            toggle_material,
+            Focused,
+            Line(vec![]),
+            Wireframe,
+            crate::layer::Layer::Foreground(*current_layer),
+        ));
+        *current_layer = (*current_layer + 1) % (i8::MAX - 1);
+    }
 }
 
 fn drawing(
@@ -224,31 +217,35 @@ fn undo_condition(keyboard_input: Res<Input<KeyCode>>) -> bool {
 
 fn update_line(
     focused_line: Query<(Entity, &Line), Changed<Line>>,
-    touch_cursor: Res<TouchCursor>,
+    cursor: Res<Cursor>,
     mut commands: Commands,
 ) {
-    let mut stroke = Stroke::new(Color::RED, touch_cursor.size);
-    stroke.options.line_join = LineJoin::Round;
-    stroke.options.start_cap = LineCap::Round;
-    stroke.options.end_cap = LineCap::Round;
-    for (id, line) in focused_line.iter() {
-        commands.entity(id).insert((Path::from(line), stroke));
+    if let Cursor::Touch(touch_cursor) = cursor.as_ref() {
+        let mut stroke = Stroke::new(Color::RED, touch_cursor.size);
+        stroke.options.line_join = LineJoin::Round;
+        stroke.options.start_cap = LineCap::Round;
+        stroke.options.end_cap = LineCap::Round;
+        for (id, line) in focused_line.iter() {
+            commands.entity(id).insert((Path::from(line), stroke));
+        }
     }
 }
 
 fn remove_line(
     world_touch_cursor: Res<WorldTouchCursor>,
-    touch_cursor: Res<TouchCursor>,
+    cursor: Res<Cursor>,
     focused_line: Query<(Entity, &Line)>,
     mut commands: Commands,
 ) {
-    for (id, line) in focused_line.iter() {
-        if line
-            .0
-            .iter()
-            .any(|p| p.distance(world_touch_cursor.0) <= touch_cursor.size)
-        {
-            commands.entity(id).despawn();
+    if let Cursor::Touch(touch_cursor) = cursor.as_ref() {
+        for (id, line) in focused_line.iter() {
+            if line
+                .0
+                .iter()
+                .any(|p| p.distance(world_touch_cursor.0) <= touch_cursor.size)
+            {
+                commands.entity(id).despawn();
+            }
         }
     }
 }

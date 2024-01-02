@@ -7,6 +7,7 @@ use bevy::{
 use crate::{
     common::{hide_window_cursor, show_window_cursor},
     states::RunMode,
+    touch_cursor::Cursor,
 };
 
 pub struct UIPlugin;
@@ -18,13 +19,18 @@ impl Plugin for UIPlugin {
             .add_systems(Startup, setup_ui)
             .add_systems(
                 Update,
-                show_window_cursor.run_if(is_hover_tool_button_bar),
+                show_window_cursor.run_if(
+                    is_hover_tool_button_bar
+                        .or_else(resource_equals(Cursor::Default))
+                        .or_else(in_state(RunMode::Debug)),
+                ),
             )
             .add_systems(
                 Update,
                 hide_window_cursor
+                    .run_if(in_state(RunMode::Normal))
                     .run_if(not(is_hover_tool_button_bar))
-                    .run_if(in_state(RunMode::Normal)),
+                    .run_if(not(resource_equals(Cursor::Default))),
             )
             .add_systems(
                 Update,
@@ -123,38 +129,59 @@ fn setup_ui(
                         }),
                         ..default()
                     };
-
-                    let mut tool_btn =
-                        |pos: Vec2, tool: ToolButton, key_code: KeyCode| {
-                            parent
-                                .spawn((
-                                    NodeBundle {
-                                        style: Style {
-                                            padding: UiRect::all(Val::Px(10.0)),
-                                            ..default()
-                                        },
+                    struct ToolButtonConfig {
+                        /** 工具类型 */
+                        tool: ToolButton,
+                        /** 图标纹理位置 */
+                        pos: Vec2,
+                        /** 按键绑定 */
+                        key_code: KeyCode,
+                        /** 鼠标指针 */
+                        cursor: Cursor,
+                    }
+                    let mut tool_btn = |config: ToolButtonConfig| {
+                        let ToolButtonConfig {
+                            tool,
+                            pos,
+                            key_code,
+                            cursor,
+                        } = config;
+                        parent
+                            .spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        padding: UiRect::all(Val::Px(10.0)),
                                         ..default()
                                     },
-                                    bevy::ui::Interaction::None,
-                                    tool,
-                                    ToolButtonKeyCode(key_code),
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn(icon(pos));
-                                });
-                        };
-
-                    tool_btn(
-                        Vec2::new(2., 0.),
-                        ToolButton::Cursor,
-                        KeyCode::Key1,
-                    );
-                    tool_btn(Vec2::new(0., 0.), ToolButton::Pen, KeyCode::Key2);
-                    tool_btn(
-                        Vec2::new(1., 0.),
-                        ToolButton::Eraser,
-                        KeyCode::Key3,
-                    );
+                                    ..default()
+                                },
+                                bevy::ui::Interaction::None,
+                                tool,
+                                cursor,
+                                ToolButtonKeyCode(key_code),
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn(icon(pos));
+                            });
+                    };
+                    tool_btn(ToolButtonConfig {
+                        tool: ToolButton::Cursor,
+                        pos: Vec2::new(2., 0.),
+                        key_code: KeyCode::Key1,
+                        cursor: Cursor::Default,
+                    });
+                    tool_btn(ToolButtonConfig {
+                        tool: ToolButton::Pen,
+                        pos: Vec2::new(0., 0.),
+                        key_code: KeyCode::Key2,
+                        cursor: Cursor::default(),
+                    });
+                    tool_btn(ToolButtonConfig {
+                        tool: ToolButton::Eraser,
+                        pos: Vec2::new(1., 0.),
+                        key_code: KeyCode::Key3,
+                        cursor: Cursor::default(),
+                    });
                 });
         });
 }
@@ -202,17 +229,19 @@ fn update_tool_button_background(
 
 fn focused_tool_by_key_code(
     mut keyboard_input_events: EventReader<KeyboardInput>,
-    tool_button_query: Query<(&ToolButtonKeyCode, &ToolButton)>,
+    tool_button_query: Query<(&ToolButtonKeyCode, &ToolButton, &Cursor)>,
     mut focused_tool: ResMut<FocusedTool>,
+    mut cursor_resource: ResMut<Cursor>,
 ) {
     for ev in keyboard_input_events.read() {
         if ev.state == ButtonState::Pressed {
-            for (key_code, tool) in tool_button_query.iter() {
+            for (key_code, tool, cursor) in tool_button_query.iter() {
                 if let (Some(key1), ToolButtonKeyCode(key2)) =
                     (ev.key_code, key_code)
                 {
                     if key1 == *key2 {
                         *focused_tool = FocusedTool(tool.clone());
+                        *cursor_resource = cursor.clone();
                     }
                 }
             }

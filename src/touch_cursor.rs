@@ -11,35 +11,43 @@ pub struct TouchCursorPlugin;
 impl Plugin for TouchCursorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiMaterialPlugin::<TouchCursorUiMaterial>::default())
-            .init_resource::<TouchCursor>()
-            .register_type::<TouchCursor>()
+            .init_resource::<Cursor>()
             .init_resource::<WorldTouchCursor>()
             .register_type::<WorldTouchCursor>()
             .add_systems(Startup, setup_touch_cursor)
             .add_systems(
                 Update,
-                (update_touch_cursor, update_world_torch_cursor),
+                (
+                    update_touch_cursor,
+                    update_world_torch_cursor,
+                    update_touch_cursor_size,
+                ),
             );
     }
 }
 
-#[derive(Resource, Reflect)]
-#[reflect(Resource)]
+#[derive(Clone, PartialEq)]
 pub struct TouchCursor {
     pub color: Color,
     pub size: f32,
+}
+
+#[derive(Resource, Component, Clone, PartialEq)]
+pub enum Cursor {
+    Touch(TouchCursor),
+    Default,
 }
 
 #[derive(Resource, Default, Reflect, Debug)]
 #[reflect(Resource)]
 pub struct WorldTouchCursor(pub Vec2);
 
-impl Default for TouchCursor {
+impl Default for Cursor {
     fn default() -> Self {
-        Self {
+        Cursor::Touch(TouchCursor {
             color: Color::WHITE,
             size: 16.0,
-        }
+        })
     }
 }
 
@@ -58,17 +66,18 @@ impl UiMaterial for TouchCursorUiMaterial {
 fn update_touch_cursor(
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
     q_proj: Query<&OrthographicProjection, With<MainCamera>>,
-    mut touch_cursor: ResMut<TouchCursor>,
+    cursor: Res<Cursor>,
     mut ui_materials: ResMut<Assets<TouchCursorUiMaterial>>,
     mut q_cursor: Query<(
         &mut Style,
         &mut Transform,
         &mut Handle<TouchCursorUiMaterial>,
     )>,
-    keyboard_input: Res<Input<KeyCode>>,
 ) {
     let window = q_windows.single_mut();
-    if let Some(cursor_position) = window.cursor_position() {
+    if let (Some(cursor_position), Cursor::Touch(touch_cursor)) =
+        (window.cursor_position(), cursor.as_ref())
+    {
         let (mut style, mut transform, mut material) = q_cursor.single_mut();
         style.left = Val::Px(cursor_position.x - touch_cursor.size / 2.0);
         style.top = Val::Px(cursor_position.y - touch_cursor.size / 2.0);
@@ -80,46 +89,55 @@ fn update_touch_cursor(
             color: touch_cursor.color.into(),
         })
     }
+}
 
-    if keyboard_input.pressed(KeyCode::BracketLeft) {
-        touch_cursor.size -= 0.5;
-    }
+fn update_touch_cursor_size(
+    mut cursor: ResMut<Cursor>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
+    if let Cursor::Touch(touch_cursor) = cursor.as_mut() {
+        if keyboard_input.pressed(KeyCode::BracketLeft) {
+            touch_cursor.size -= 0.5;
+        }
 
-    if keyboard_input.pressed(KeyCode::BracketRight) {
-        touch_cursor.size += 0.5;
+        if keyboard_input.pressed(KeyCode::BracketRight) {
+            touch_cursor.size += 0.5;
+        }
     }
 }
 
 fn setup_touch_cursor(
     mut commands: Commands,
     mut ui_materials: ResMut<Assets<TouchCursorUiMaterial>>,
-    touch_cursor: Res<TouchCursor>,
+    cursor: Res<Cursor>,
 ) {
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(MaterialNodeBundle {
+    if let Cursor::Touch(touch_cursor) = cursor.as_ref() {
+        commands
+            .spawn(NodeBundle {
                 style: Style {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(touch_cursor.size),
-                    height: Val::Px(touch_cursor.size),
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
-                material: ui_materials.add(TouchCursorUiMaterial {
-                    color: Color::WHITE.into(),
-                }),
                 ..default()
+            })
+            .with_children(|parent| {
+                parent.spawn(MaterialNodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        width: Val::Px(touch_cursor.size),
+                        height: Val::Px(touch_cursor.size),
+                        ..default()
+                    },
+                    material: ui_materials.add(TouchCursorUiMaterial {
+                        color: Color::WHITE.into(),
+                    }),
+                    ..default()
+                });
             });
-        });
+    }
 }
 
 fn update_world_torch_cursor(
