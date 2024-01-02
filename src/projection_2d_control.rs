@@ -1,6 +1,6 @@
 use bevy::{input::mouse::MouseWheel, prelude::*, window::PrimaryWindow};
 
-use crate::states::{AppState, RunMode};
+use crate::states::{CursorState, RunMode, ToolButton};
 
 pub struct Projection2dControlPlugin;
 
@@ -10,9 +10,9 @@ impl Plugin for Projection2dControlPlugin {
             .init_resource::<CameraBeginTransform>()
             .add_systems(Startup, spawn_camera)
             .add_systems(
-                OnEnter(AppState::MovingCamera),
-                |q_windows: Query<&Window, With<PrimaryWindow>>,
-                 mut state_change_position_begin: ResMut<
+                OnEnter(CursorState::Draging),
+                (|q_windows: Query<&Window, With<PrimaryWindow>>,
+                  mut state_change_position_begin: ResMut<
                     StateChangePositionBegin,
                 >| {
                     let window = q_windows.single();
@@ -20,22 +20,25 @@ impl Plugin for Projection2dControlPlugin {
                         *state_change_position_begin =
                             StateChangePositionBegin(Some(cursor_position));
                     }
-                },
+                })
+                .run_if(in_state(ToolButton::MoveCamera)),
             )
             .add_systems(
-                OnEnter(AppState::MovingCamera),
-                set_camera_begin_transform,
+                OnEnter(CursorState::Draging),
+                set_camera_begin_transform
+                    .run_if(in_state(ToolButton::MoveCamera)),
             )
             .add_systems(
                 Update,
                 update_camera
-                    .run_if(in_state(AppState::MovingCamera))
+                    .run_if(in_state(ToolButton::MoveCamera))
+                    .run_if(in_state(CursorState::Draging))
                     .run_if(in_state(RunMode::Normal)),
             )
             .add_systems(
                 Update,
                 control_proj
-                    .run_if(in_state(AppState::Hovering))
+                    .run_if(in_state(CursorState::Hovering))
                     .run_if(in_state(RunMode::Normal)),
             );
     }

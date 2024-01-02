@@ -7,7 +7,7 @@ use bevy::{
 use crate::{
     common::{hide_window_cursor, show_window_cursor},
     states::{RunMode, ToolButton},
-    touch_cursor::Cursor,
+    cursor::Cursor,
 };
 
 pub struct UIPlugin;

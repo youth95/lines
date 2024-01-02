@@ -5,9 +5,10 @@ pub mod layer;
 pub mod projection_2d_control;
 pub mod states;
 pub mod toggle_component;
-pub mod touch_cursor;
+pub mod cursor;
 pub mod ui;
 
 pub mod common;
 
 pub mod mesh_focus;
+pub mod shapes;

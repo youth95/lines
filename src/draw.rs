@@ -11,11 +11,12 @@ use bevy_prototype_lyon::prelude::*;
 
 use crate::{
     chalk::ChalkMaterial,
+    common::clear_with,
+    cursor::{Cursor, TouchCursorPlugin, WorldTouchCursor},
     frame::FrameMaterial,
     mesh_focus::MeshFocusPlugin,
-    states::{AppState, RunMode, ToolButton},
+    states::{CursorState, RunMode, ToolButton},
     toggle_component::{self, Toggle},
-    touch_cursor::{Cursor, TouchCursorPlugin, WorldTouchCursor},
 };
 
 pub struct DrawPlugin;
@@ -67,11 +68,11 @@ impl Plugin for DrawPlugin {
             draw_all_false.run_if(input_just_released(KeyCode::Tab)),
         )
         .add_systems(
-            OnEnter(AppState::Hovering),
+            OnEnter(CursorState::Hovering),
             remove_focused_line.run_if(in_state(ToolButton::Pen)),
         )
         .add_systems(
-            OnEnter(AppState::Drawing),
+            OnEnter(CursorState::Draging),
             spawn_focused_line.run_if(in_state(ToolButton::Pen)),
         )
         .add_systems(Update, clear_with::<With<Path>>.run_if(clear_condition))
@@ -80,7 +81,7 @@ impl Plugin for DrawPlugin {
             remove_line
                 .run_if(resource_changed::<WorldTouchCursor>())
                 .run_if(in_state(ToolButton::Eraser))
-                .run_if(in_state(AppState::Drawing)),
+                .run_if(in_state(CursorState::Draging)),
         )
         .add_systems(
             Update,
@@ -185,15 +186,6 @@ fn drawing(
                 focused_line.0.push(point);
             }
         }
-    }
-}
-
-fn clear_with<F: ReadOnlyWorldQuery>(
-    mut commands: Commands,
-    query: Query<Entity, F>,
-) {
-    for id in query.iter() {
-        commands.entity(id).despawn();
     }
 }
 

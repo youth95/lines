@@ -4,7 +4,9 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-use crate::projection_2d_control::MainCamera;
+use crate::{
+    common::clear_with, projection_2d_control::MainCamera, states::ToolButton,
+};
 
 pub struct TouchCursorPlugin;
 
@@ -14,13 +16,22 @@ impl Plugin for TouchCursorPlugin {
             .init_resource::<Cursor>()
             .init_resource::<WorldTouchCursor>()
             .register_type::<WorldTouchCursor>()
-            .add_systems(Startup, setup_touch_cursor)
+            .add_systems(OnEnter(ToolButton::Pen), setup_touch_cursor)
+            .add_systems(OnEnter(ToolButton::Eraser), setup_touch_cursor)
+            .add_systems(
+                OnExit(ToolButton::Pen),
+                clear_with::<With<TouchCursorMark>>,
+            )
+            .add_systems(
+                OnExit(ToolButton::Eraser),
+                clear_with::<With<TouchCursorMark>>,
+            )
+            .add_systems(Update, update_world_torch_cursor)
             .add_systems(
                 Update,
-                (
-                    update_touch_cursor,
-                    update_world_torch_cursor,
-                    update_touch_cursor_size,
+                (update_touch_cursor, update_touch_cursor_size).run_if(
+                    in_state(ToolButton::Pen)
+                        .or_else(in_state(ToolButton::Eraser)),
                 ),
             );
     }
@@ -106,6 +117,9 @@ fn update_touch_cursor_size(
     }
 }
 
+#[derive(Component)]
+struct TouchCursorMark;
+
 fn setup_touch_cursor(
     mut commands: Commands,
     mut ui_materials: ResMut<Assets<TouchCursorUiMaterial>>,
@@ -113,29 +127,35 @@ fn setup_touch_cursor(
 ) {
     if let Cursor::Touch(touch_cursor) = cursor.as_ref() {
         commands
-            .spawn(NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                ..default()
-            })
-            .with_children(|parent| {
-                parent.spawn(MaterialNodeBundle {
+            .spawn((
+                NodeBundle {
                     style: Style {
-                        position_type: PositionType::Absolute,
-                        width: Val::Px(touch_cursor.size),
-                        height: Val::Px(touch_cursor.size),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    material: ui_materials.add(TouchCursorUiMaterial {
-                        color: Color::WHITE.into(),
-                    }),
                     ..default()
-                });
+                },
+                TouchCursorMark,
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    MaterialNodeBundle {
+                        style: Style {
+                            position_type: PositionType::Absolute,
+                            width: Val::Px(touch_cursor.size),
+                            height: Val::Px(touch_cursor.size),
+                            ..default()
+                        },
+                        material: ui_materials.add(TouchCursorUiMaterial {
+                            color: Color::WHITE.into(),
+                        }),
+                        ..default()
+                    },
+                    TouchCursorMark,
+                ));
             });
     }
 }
