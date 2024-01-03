@@ -40,6 +40,7 @@ fn main() {
             lines::projection_2d_control::Projection2dControlPlugin,
             lines::draw::DrawPlugin,
             lines::ui::UIPlugin,
+            
         ))
         .insert_resource(WireframeConfig {
             global: true,

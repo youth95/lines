@@ -13,8 +13,9 @@ use crate::{
     chalk::ChalkMaterial,
     common::clear_with,
     cursor::{Cursor, TouchCursorPlugin, WorldTouchCursor},
+    focus::MeshFocusPlugin,
     frame::FrameMaterial,
-    mesh_focus::MeshFocusPlugin,
+    selected::SelectedPlugin,
     states::{CursorState, RunMode, ToolButton},
     toggle_component::{self, Toggle},
 };
@@ -47,6 +48,7 @@ impl Plugin for DrawPlugin {
             Material2dPlugin::<FrameMaterial>::default(),
             TouchCursorPlugin,
             MeshFocusPlugin,
+            SelectedPlugin,
         ))
         .add_systems(
             Update,
