@@ -12,20 +12,21 @@ pub enum CursorState {
     Draging,
 }
 
+#[derive(States, Component, Debug, Hash, Default, PartialEq, Eq, Clone)]
+pub enum ToolButton {
+    #[default]
+    Pen,
+    Cursor,
+    Eraser,
+    MoveCamera,
+    TextInput,
+}
+
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum RunMode {
     #[default]
     Normal,
     Debug,
-}
-
-#[derive(States, Component, Debug, Hash, Default, PartialEq, Eq, Clone)]
-pub enum ToolButton {
-    #[default]
-    Pen,
-    Eraser,
-    Cursor,
-    MoveCamera,
 }
 
 pub struct StatesPlugin;
@@ -54,20 +55,28 @@ impl Plugin for StatesPlugin {
         let in_normal_mode = (to_next_state_in_hovering, to_hovering)
             .run_if(in_state(RunMode::Normal));
 
-        let (push, pop) = state_stack(ToolButton::MoveCamera);
-        let push = push
+        let (to_move_camera, back_from_move_camera) =
+            state_stack(ToolButton::MoveCamera);
+        let to_move_camera = to_move_camera
             .run_if(input_pressed(KeyCode::Space))
             .run_if(not(in_state(ToolButton::MoveCamera)));
-        let pop = pop
+        let back_from_move_camera = back_from_move_camera
             .run_if(input_just_released(KeyCode::Space))
             .run_if(in_state(ToolButton::MoveCamera));
+
         app.add_state::<CursorState>()
             .add_state::<RunMode>()
             .add_state::<ToolButton>()
             .init_resource::<StateStack<ToolButton>>()
             .add_systems(
                 Update,
-                (in_normal_mode, to_normal_mode, to_debug_mode, push, pop),
+                (
+                    in_normal_mode,
+                    to_normal_mode,
+                    to_debug_mode,
+                    to_move_camera,
+                    back_from_move_camera,
+                ),
             );
     }
 }

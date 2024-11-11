@@ -6,8 +6,8 @@ use bevy::{
 
 use crate::{
     common::{hide_window_cursor, show_window_cursor},
-    states::{RunMode, ToolButton},
     cursor::Cursor,
+    states::{RunMode, ToolButton},
 };
 
 pub struct UIPlugin;
@@ -193,16 +193,19 @@ fn update_tool_button_background(
         &Interaction,
         &mut BackgroundColor,
         &ToolButton,
+        &Cursor,
     )>,
     mut next_focused_tool: ResMut<NextState<ToolButton>>,
     focused_tool: Res<State<ToolButton>>,
+    mut cursor_resource: ResMut<Cursor>,
 ) {
-    for (interaction, mut background_color, tool) in
+    for (interaction, mut background_color, tool, cursor) in
         interaction_query.iter_mut()
     {
         *background_color = match interaction {
             Interaction::Pressed => {
                 next_focused_tool.set(tool.clone());
+                *cursor_resource = cursor.clone();
                 TOOL_BUTTON_FOCUS.into()
             }
             Interaction::Hovered => TOOL_BUTTON_HOVER.into(),

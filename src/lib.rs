@@ -14,3 +14,5 @@ pub mod common;
 pub mod focus;
 pub mod shapes;
 pub mod selected;
+pub mod double_click;
+pub mod text_input;

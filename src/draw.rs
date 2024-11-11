@@ -13,10 +13,12 @@ use crate::{
     chalk::ChalkMaterial,
     common::clear_with,
     cursor::{Cursor, TouchCursorPlugin, WorldTouchCursor},
+    double_click::DoubleClickPlugin,
     focus::MeshFocusPlugin,
     frame::FrameMaterial,
     selected::SelectedPlugin,
     states::{CursorState, RunMode, ToolButton},
+    text_input::TextInputPlugin,
     toggle_component::{self, Toggle},
 };
 
@@ -49,6 +51,8 @@ impl Plugin for DrawPlugin {
             TouchCursorPlugin,
             MeshFocusPlugin,
             SelectedPlugin,
+            DoubleClickPlugin,
+            TextInputPlugin,
         ))
         .add_systems(
             Update,
